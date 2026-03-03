@@ -272,3 +272,69 @@
 	on Employees.DepartmentId = Department.Id
 	group by Location
 
+	select * from Employees
+	select SUM(cast(Salary as int)) from Employees
+
+	--lisame veeru City ja pikkus on 30
+
+	alter table Employees
+	add City nvarchar(30)
+
+	select City, Gender, SUM(cast(Salary as int)) as TotalSalary
+	from Employees
+	group by City, Gender
+
+	--peaaegu sama päring, aga linnad on tähestikulises järjestuses
+	select City, Gender, SUM(cast(Salary as int)) as TotalSalary
+	from Employees
+	group by City, Gender order by City
+
+	--on vaja teada, etmitu inimest on nimekirjas
+
+	Select COUNT(*) From Employees
+
+	--mitu töötajat on soo ja linna kaupa töötamas
+	select City, Gender, SUM(cast(Salary as int)) as TotalSalary,
+	COUNT(Id) as [Total Employee(s)]
+	from Employees
+	group by Gender, City
+
+	--kuvab kas naised või mehed linnade kaupa
+	--kasutage where
+
+	select City, Gender, SUM(cast(Salary as int)) as TotalSalary,
+	COUNT(Id) as [Total Employee(s)]
+	from Employees
+	Where Gender = 'Male'
+	group by Gender, City
+
+	--sama tulemus nagu eelmine, aga kasutame having
+
+	select City, Gender, SUM(cast(Salary as int)) as TotalSalary,
+	COUNT(Id) as [Total Employee(s)]
+	from Employees
+	group by Gender, City
+	Having Gender = 'Male'
+
+	--kõik kes teenivad rohkem kui 4000 (variandis peab error tulema)
+	select * from Employees
+	where SUM(cast(Salary as int)) > 4000
+
+	--teeme variandi, kus saame tulemuse
+	select  Gender, City, SUM(cast(Salary as int)) as TotalSalary,
+	COUNT(Id) as [Total Employee(s)]
+	from Employees
+	group by Gender, City
+	having SUM(CAST(salary as int)) > 4000
+
+	--loome tabeli, milles hakatakse automaatselt nummerdama Id-d
+	create table Test1
+	(
+	Id int identity(1,1),
+	Value nvarchar(20)
+	)
+
+	insert into Test1 values('X')
+	select * from Test1
+
+
