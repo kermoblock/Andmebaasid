@@ -336,5 +336,132 @@
 
 	insert into Test1 values('X')
 	select * from Test1
+	
+	--kustutame veeru nimega City Employee tabelist
+	alter table Employees 
+	drop column City
 
+	--inner join
+	--kuvab neid, kellel on DepartmentName all olemas väärtus
+	--mitte kattuvad read eemaldatakse tulemusest
+	--ja sellepärast ei näidata Jamesi ja Russelit tabelis
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	inner join Department
+	on Employees.DepartmentId = Department.Id
+
+	--left join
+
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	left join Department  --võib kasutada ka LEFT OUTER JOIN-i
+	on Employees.DepartmentId = Department.Id
+	--mis on left join
+	--näitab paremas tabelis olevaid väärtuseid,
+	--mis ei ühti vasaku (Department) tabeliga
+
+	--right join
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	right join Department
+	on Employees.DepartmentId = Department.Id
+	--mis on right join
+	--näitab paremas tabelis olevaid väärtuseid,
+	--mis ei ühti vasaku (Employees) tabeliga
+
+	--outer join
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	full outer join Department
+	on Employees.DepartmentId = Department.Id
+	--mõlema tabeli read kuvab
+
+	--teha cross join
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	cross join Department
+	--korrutab kõik omavahel läbi
+
+	--teha left join, kus Employees tabelist DepartmentId on NULL
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	left join Department
+	on Employees.DepartmentId = Department.Id
+	where Employees.DepartmentId is NULL
+
+	--teine variant ja sama tulemus
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	left join Department
+	on Employees.DepartmentId = Department.Id
+	where Department.Id is NULL
+	--näitab ainult neid, kellel on vasakus tabelis (Employees)
+	--DepartmentId NULL
+
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	right join Department
+	on Employees.DepartmentId = Department.Id
+	where Employees.DepartmentId is NULL
+	--näitab ainult paremas tabelis olevat rida,
+	--mis ei kattu Employees-ga
+
+	--full join
+	--peab näitama mõlema tabeli mitte-kattuvate väärtustega read kuvab välja
+	select Name, Gender, Salary, DepartmentName
+	from Employees
+	full join Department
+	on Employees.DepartmentId = Department.Id
+	where Employees.DepartmentId is NULL
+	or DepartmentId is NULL
+
+	--teete AdventureWorksLT2019 andmebassile join päringud
+	--inner join, left join, right join, cross join, full join
+	--tabeleid selle andmebaasi juurde ei tohi teha
+
+	--Inner Join
+	USE AdventureWorksLT2019
+	select NameStyle, Title, FirstName
+	from SalesLT.Customer
+	inner join SalesLT.CustomerAddress
+	on SalesLT.CustomerAddress.CustomerId = SalesLT.Customer.CustomerId
+
+	--Left Join
+	USE AdventureWorksLT2019
+	select NameStyle, Title, FirstName
+	from SalesLT.Customer
+	left join SalesLT.CustomerAddress
+	on SalesLT.CustomerAddress.CustomerId = SalesLT.Customer.CustomerId
+
+	--Right Join
+	USE AdventureWorksLT2019
+	select NameStyle, Title, FirstName
+	from SalesLT.Customer
+	right join SalesLT.CustomerAddress
+	on SalesLT.CustomerAddress.CustomerId = SalesLT.Customer.CustomerId
+	 
+	 --Cross Join
+	USE AdventureWorksLT2019
+	select NameStyle, Title, FirstName
+	from SalesLT.Customer
+	cross join SalesLT.CustomerAddress
+
+	--Full Join
+	USE AdventureWorksLT2019
+	select NameStyle, Title, FirstName
+	from SalesLT.Customer
+	full  join SalesLT.CustomerAddress
+	on SalesLT.CustomerAddress.CustomerId = SalesLT.Customer.CustomerId
+
+	--mõnikord peab muutuja ette kirjutama tabeli nimetuse nagu on Product.Name
+	--et editor saaks aru, et kumma tabeli muutujat soovitakse kasutada ja ei tekiks
+	--segadust
+	select Product.Name as [Product Name], ProductNumber, ListPrice, ProductModel.Name as [Product Model Name]
+	--mõnikord peab ka tabeli ette kirjutama täpsustama info
+	--nagu on Sales.LT Producti ees
+	from SalesLT.Product
+	inner join SalesLT.ProductModel
+	--antud juhul producti tabelis ProductModelId võõrvõti,
+	--mis ProfuctModeli tabelis on primaarvõti
+	on Product.ProductModelId = ProductModel.ProductModelId
 
