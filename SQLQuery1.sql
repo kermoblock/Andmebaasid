@@ -764,4 +764,5 @@
 
 	--output tagastab muudetud read kohe päringu tulemusena
 	--see on salvestatud protseduuris ja ühe väärtuse tagastamine
+	--out ei anna mitte midagi, kui seda ei määra execute käsus
 	
