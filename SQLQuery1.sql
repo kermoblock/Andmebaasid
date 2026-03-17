@@ -685,10 +685,83 @@
 	else
 	print '@Total is not null'
 	print @TotalCount
+
+	--näitab ära mitu rida vastab nõuetele
+
+	--deklareerime muutuja @TotalCount, mis on int andmetüüp
+	declare @TotalCount int
+	--käivitame stored procedure spGetEmployeeCountByGender, kus on parameetrid
+	--@EmployeeCount = @TotalCount out ja @Gender
+	exec spGetEmployeeCountByGender @EmployeeCount = @TotalCount out, @Gender = 'Male'
+	--prindib konsooli välja, kui TotalCount on null või mitte null
+	print @TotalCount
+
+	--sp sisu vaatamine
+	sp_help spGetEmployeeCountByGender
+	--tabeli info vaatamine
+	sp_help
+	--kui soovid sp teksti näha
+	sp_helptext spGetEmployeeCountByGender
+
+	--vaatame, millest sõltub meie valitud sp
+	sp_depends spGetEmployeeCountByGender
+	--näitab, et sõltub Employees tabelist, kuna seal on count(Id)
+	-- ja Id on Employees tabelis
+
+	--vaatame tabelit
+	sp_depends Employees
+
+	--teeme sp, mis annab andmeid Id ja Name veergude kohta Employees tabelis
+	create procedure spGetNamebyId
+	@Id int,
+	@Name nvarchar(20) output
+	as begin
+	select @Id = Id, @Name = FirstName from Employees
+	end
+
+	--annab kogu tabeli ridade arvu
+	create proc spTotalCount2
+	@TotalCount int output
+	as begin
+	select @TotalCount = COUNT(Id) from Employees
+	end
+
+	--on vaja teha uus päring, kus kasutame SpTotalCount2 sp-d, 
+	--et saada tabelite ridade arv
+	--tuleb deklareerida muutuja @TotalCount, mis on int andmetüüp
+	--tuleb execute spTotalCount2, kus parameeter @TotalCount = @TotalCount out
+	declare @TotalCount int
+
+	execute spTotalCount2
+	@TotalCount = @TotalCount out
+	select @TotalCount
+
+	--mis Id all on keegi nime järgi
+	create proc spGetNameById1
+	@Id int,
+	@FirstName nvarchar(20) output
+	as begin
+	select @FirstName = FirstName From Employees where Id = @Id
+	end
+
+	--annab tulemuse, kus id 1 (seda numbrit saab muuta) real on keegi koos nimega
+	--print tuleb kasutada, et näidata tulemust
+
+	declare @FirstName nvarchar(20)
+
+	execute spGetNameById1 7,
+	@FirstName output
+	print 'Name of the employee = ' +  @FirstName
+
+	--tehke sama mis eelmine, aga kasutage spGetNameById sp-d
+	--FirstName lõpus on out
+
+	declare @Name nvarchar(20)
+
+	execute spGetNameById 1,
+	@Name Out
+	print 'Name of the Employee = ' + @Name
+
+	--output tagastab muudetud read kohe päringu tulemusena
+	--see on salvestatud protseduuris ja ühe väärtuse tagastamine
 	
-
-
-
-
-
-
