@@ -757,7 +757,6 @@
 	--FirstName lõpus on out
 
 	declare @Name nvarchar(20)
-
 	execute spGetNameById 1,
 	@Name Out
 	print 'Name of the Employee = ' + @Name
@@ -765,4 +764,208 @@
 	--output tagastab muudetud read kohe päringu tulemusena
 	--see on salvestatud protseduuris ja ühe väärtuse tagastamine
 	--out ei anna mitte midagi, kui seda ei määra execute käsus
+
+	sp_help spGetNameById
+
+	create proc spGetNameById2
+	@Id int
+	--kui on begin, siis on ka end kuskil olemas
+	as begin
+		return (select FirstName from Employees where Id = @Id)
+	end
+
+	--tuleb veateade kuna kutsusime välja int-i, aga "Tom" on nvarchar
+	declare @EmployeeName nvarchar(50)
+	exec @EmployeeName = spGetNameById2 1
+	print 'Name of The Employee = ' + @EmployeeName
+
+	--sisseehitatud string funktsioonid
+	--see konverteerib ASCII tähe väärtuse numbriks
+	select ASCII('A')
+
+	select CHAR(122)
+
+	--prindime kogu tähestiku välja
+	--kasutate while, et näidata kogu tähestik ette
+	declare @Start int
+	set @Start = 97 
+	while (@Start <= 122)
+	begin
+		select CHAR(@Start)
+		set @Start = @Start + 1
+	end
+
+	--eemaldame tühjad kohad sulgudes
+	select LTRIM('                    Hello')
+	select ('                    Hello')
+
+	--tühikute eemaldamine veerust, mis on tabelis
+	select FirstName, MiddleName, LastName from Employees
+	select lTRIM(FirstName) as FirstName, MiddleName, LastName from Employees
+
+	--paremalt poolt tühjad stringid lõikab ära
+	select RTRIM('               Hello                    ')
+	select ('             Hello                    ')
+
+	--keerab kooloni sees olevad andmed vastupidiseks
+	--vastavalt lower-ga ja upper-ga saan muuta märkide suurust
+	--reverse funktsioon pöörab kõik ümber
+	select REVERSE(upper(ltrim(FirstName))) as FirstName, MiddleName, LOWER(LastName),
+	rtrim(ltrim(FirstName)) + ' ' + MiddleName + ' ' + LastName as FullName
+	from Employees
+
+	--left, right, substring
+	--vasakult poolt neli esimest tähte
+	select LEFT('ABCDEF', 4)
+	--paremalt poolt kolm esimest tähte
+	select right('ABCDEF', 3)
+
+	--kuvab @-tähemärgi asetust ehk mitmes on @-märk
+	select CHARINDEX('@', 'sara@aaa.com')
+
+	--esimene nr peale komakohta näitab, et mitmendast alustab ja
+	--siis mitu nr peale seda kuvab
+	select SUBSTRING('pam@bbb.com', 5, 4)
+
+	-- @-märgist kuvab kolm tähemärki. Viimase nr-ga saab määrata pikkust
+	select SUBSTRING('pam@bbb.com', charindex('@', 'pam@bbb.com') + 1, 3)
+
+	--peale @-märki hakkab kuvama tulemst, nr saab kaugust seadistada
+	select SUBSTRING('pam@bbb.com', charindex('@', 'pam@bbb.com') + 2,
+	LEN('pam@bbb.com') - charindex('@', 'pam@bbb.com'))
+
+	alter table Employees
+	add Email nvarchar(20)
+
+	insert into Employees (Email)
+	values ('Tom@aaa.com'),
+	('Pam@bbb.com'),
+	('John@aaa.com'),
+	('Sam@bbb.com'),
+	('Todd@bbb.com'),
+	('Ben@ccc.com'),
+	('Sara@cc.com'),
+	('Valarie@aaa.com'),
+	('James@bbb.com'),
+	('Russel@bbb.com'),
+	update Employees
+	set Email = Case Id
+	when 1 then 'Tom@aaa.com'
+	when 2 then'Pam@bbb.com'
+	when 3 then 'John@aaa.com'
+	when 4 then 'Sam@bbb.com'
+	when 5 then 'Todd@bbb.com'
+	when 6 then 'Ben@ccc.com'
+	when 7 then 'Sara@cc.com'
+	when 8 then 'Valarie@aaa.com'
+	when 9 then 'James@bbb.com'
+	when 10 then 'Russel@bbb.com'
+	end
+	select * from Employees
+
+	--soovime teada saada domeenimesid emailides
+	select substring (Email, Charindex('@', Email) + 1,
+	len(Email) - charindex('@', Email)) as EmailDomain
+	from Employees
+
+	--alates teisest tähest emailis kuni @ märgini on tärnid
+	select FirstName, LastName,
+	substring(Email, 1, 2) +
+	REPLICATE('*', 5) +
+	substring (Email, charindex('@', Email), len(Email) - charindex('@' Email)+1) as Emails
+
+	from Employees
+
+	--kolm korda näitab stringis olevat väärtust
+	selecct REPLICATE('asd', 3)
+	c
+	--tühiku sisestacmine
+	select SPACE(5)c
+	ncncncncncncncc
+	--tühiku sisestamine FirstName ja LastName vahele
+	SELECT FirstName + SPACE(25) + LastName AS FullName
+	FROM Employees;
+	
+	--PATINDEX
+	--sama, mis charindex, aga dünaamilisem ja saab kasutada wildcardi
+	select Email, PATINDEX('%@aaa.com', Email) as FirstOccurence
+	from Employees
+	where PATINDEX('%@aaa.com', Email) > 0
+	--leian kõik selle domeeni esindajad ja alates mitmendast märgist algab @
+
+	--kõik .com emailid asendab .net-ga
+	SELECT Email, REPLACE(Email, '.com', '.net') as ConvertedEmail
+	FROM Employees;
+	
+	--soovin asendada peale esimest märki kolm tähte viie tärniga
+	Select FirstName, LastName, Email,
+	stuff(Email, 2, 3, '*****') as StuffedEmail
+	from Employees
+
+	create table DateTime
+	(
+		c_time time,
+		c_date date,
+		c_smalldatetime smalldatetime,
+		c_datetime datetime,
+		c_datetime2 datetime2,
+		c_datetimeoffset datetimeoffset
+	)
+
+	select * from DateTime
+
+	--konkreetse masina kellaaeg
+	select GETDATE(), 'GETDate()'
+
+	insert into DateTime
+	values (GETDATE(), GETDATE(),GETDATE(),GETDATE(),GETDATE(),GETDATE())
+
+	select * from DateTime
+
+	update DateTime set c_datetimeoffset = '2027-03-19 14:25:28.7533333 +10:00'
+	where c_datetimeoffset = '2026-03-19 14:25:28.7533333 +00:00'
+
+	select CURRENT_TIMESTAMP, 'CURRENT_TIMESTAMP' --aja päring
+	select SYSDATETIME(), 'SYSDATETIME' --veel täpsem aja päring
+	select SYSDATETIMEOFFSET(), 'SYSDATETIMEOFFSET' --täpne aeg koos ajalise nihkega
+	select GETUTCDATE(), 'GETUTCDATE' --UTC aeg
+
+	--saab kontrollida, kas on õige andmetüüp
+	select ISDATE('asd') -- tagastab 0 kuna string ei ole date
+
+	--kuidas saada vastuseks 1 isdate puhul
+	select ISDATE('2029-03-19')
+	select ISDATE(getdate())
+
+	select ISDATE('2026-03-19 14:25:28.7533333') --tagastab 0 kuna max kolm komakohta võib olla
+	select ISDATE('2026-03-19 14:25:28.753') --tagastab 1
+
+	select DAY(getdate()) --annab tänase päeva numbri
+
+	select DAY('04/01/2026') --annab stringis oleva kuupäeva ja järjestus peab olema õige
+	--(päev/kuu/aasta)
+
+	select month(getdate()) --annab jooksva kuu numbri
+	select month('01/04/2026') --annab stringis oleva kuu ja järjestus peab olema õige
+
+	select year(getdate()) --annab jooksva aasta numbri
+	select year('01/04/2026') --annab stringis oleva aasta ja järjestus peab olema õige
+
+	select DATENAME(day, '2026-03-19 14:25:28.753') --tuvastab ära päeva numbri
+	select DATENAME(weekday, '2026-03-19 14:25:28.753') --annab stringis oleva päeva sõnana
+	select DATENAME(month, '2026-03-19 14:25:28.753') --annab stringis oleva kuu sõnana
+
+	create table EmployeesWithDates
+	(
+		Id nvarchar(2),
+		Name nvarchar(20),
+		DateOfBirth datetime
+	)
+
+	select * from EmployeesWithDates
+	insert into EmployeesWithDates (Id, Name, DateOfBirth)
+	values ('1', 'Sam', '1980-12-30 00:00:00.000'),
+	('2', 'Pam', '1982-09-01 12:02:36.260'),
+	('3', 'John', '1985-08-22 12:03:30.370'),
+	('4', 'Sara', '1979-11-29 12:59:30.670')
 	
