@@ -1773,3 +1773,618 @@ as begin
 		from deleted where Id = @Id
 
 
+		---rida 1677
+		---tund 14
+		---30.04.26
+		--hakkab võrdlema igat muutujat, et kas toimus andmete muutus
+		set @AuditString = 'Employee with Id = ' + cast(@Id as nvarchar(4)) + ' changed '
+		if(@OldGender <> @NewGender)
+			set @AuditString = @AuditString + ' Gender from ' + @OldGender + ' to ' +
+			@NewGender
+
+		if(@OldSalary <> @NewSalary)
+			set @AuditString = @AuditString + ' Salary from ' + cast(@OldSalary as nvarchar(20)) + ' to ' +
+			cast(@NewSalary as nvarchar(20))
+
+		if(@OldDepartmentId <> @NewDepartmentId)
+			set @AuditString = @AuditString + ' DepartmentId from ' + cast(@OldDepartmentId as nvarchar(20)) + ' to ' +
+			cast(@NewDepartmentId as nvarchar(20))
+
+		if(@OldManagerId <> @NewManagerId)
+			set @AuditString = @AuditString + ' ManagerId from ' + cast(@OldManagerId as nvarchar(20)) + ' to ' +
+			cast(@NewManagerId as nvarchar(20))
+
+		if(@OldFirstName <> @NewFirstName)
+			set @AuditString = @AuditString + ' FirstName from ' + @OldFirstName + ' to ' +
+			@NewFirstName
+
+		if(@OldMiddleName <> @NewMiddleName)
+			set @AuditString = @AuditString + ' Middlename from ' + @OldMiddleName + ' to ' +
+			@NewMiddleName
+
+		if(@OldLastName <> @NewLastName)
+			set @AuditString = @AuditString + ' Lastname from ' + @OldLastName + ' to ' +
+			@NewLastName
+
+		if(@OldEmail <> @NewEmail)
+			set @AuditString = @AuditString + ' Email from ' + @OldEmail + ' to ' +
+			@NewEmail
+
+		insert into dbo.EmployeeAudit values (@AuditString)
+		--kustutab temp tabelist rea
+		delete from #TempTable where Id = @Id
+	end
+end
+-- triggeri lõpp
+
+update Employees set FirstName = 'test123', Salary = 4000, MiddleName = 'test456'
+where Id = 10
+
+select * from Employees
+select * from EmployeeAudit
+----
+
+---instead of trigger
+create table Employee
+(
+Id int primary key,
+Name nvarchar(30),
+Gender nvarchar(10),
+DepartmentId int
+)
+
+--kellel ei ole seda tabelit, siis nemad sisestavad selle koodi
+create table Department
+(
+Id int primary key,
+DepartmentName nvarchar(20)
+)
+
+select * from Employee
+
+insert into Employee values(1, 'John', 'Male', 3)
+insert into Employee values(2, 'Mike', 'Male', 2)
+insert into Employee values(3, 'Pam', 'Female', 1)
+insert into Employee values(4, 'Todd', 'Male', 4)
+insert into Employee values(5, 'Sara', 'Female', 1)
+insert into Employee values(6, 'Ben', 'Male', 3)
+
+create view vEmployeeDetails
+as
+select Employee.Id, Name, Gender, DepartmentName
+from Employee
+join Department
+on Employee.DepartmentId = Department.Id
+
+select * from vEmployeeDetails
+-- tuleb veateade
+insert into vEmployeeDetails values(7, 'Valarie', 'Female', 'IT')
+
+--nüüd proovime lahendada probleemi, kui kasutame instead of trigger-t
+create trigger tr_vEmployeeDetails_InsteadOfInsert
+on vEmployeeDetails
+instead of insert
+as begin
+	declare @DeptId int
+
+	select @DeptId = dbo.Department.Id
+	from Department
+	join inserted
+	on inserted.DepartmentName = Department.DepartmentName
+
+	if(@DeptId is null)
+		begin
+		raiserror('Invalid department name. Statement terminated', 16, 1)
+		return
+	end
+
+	insert into dbo.Employee(Id, Name, Gender, DepartmentId)
+	select Id, Name, Gender, @DeptId
+	from inserted
+end
+--- raiserror funktsioon
+-- selle eesmärk on tuua välja veateade, kui DepartmentName veerus ei ole väärtust
+-- ja ei klapi uue sisestatud väärtusega. 
+-- Esimene on parameeter ja veateate sisu, teine on veataseme nr (nr 16 tähendab 
+-- üldiseid vigu) ja kolmas on olek
+
+--nüüd saab läbi view sisestada andmeid
+insert into vEmployeeDetails values(7, 'Valarie', 'Female', 'IT')
+
+-- uuendame andmeid 
+update vEmployeeDetails
+set Name = 'Johny', DepartmentName = 'IT'
+where Id = 1
+--ei saa uuendada andmeid kuna mitu tabelit on sellest mõjutatud
+
+update vEmployeeDetails
+set DepartmentName = 'IT'
+where Id = 1
+
+select * from vEmployeeDetails
+
+--instead of Update trigger
+create trigger tr_vEmployeeDetails_InsteadOfUpdate
+on vEmployeeDetails
+instead of update
+as begin
+
+	if(update(Id))
+	begin
+		raiserror('Id cannot be changed', 16, 1)
+		return
+	end
+
+	if(update(DepartmentName))
+	begin
+		declare @DeptId int
+		select @DeptId = Department.Id
+		from Department
+		join inserted
+		on inserted.DepartmentName = Department.DepartmentName
+
+		if(@DeptId is null)
+		begin
+			raiserror('Invalid Department Name', 16, 1)
+			return
+		end
+
+		update Employee set DepartmentId = @DeptId
+		from inserted
+		join Employee
+		on Employee.Id = inserted.id
+	end
+
+	if(update(Gender))
+	begin
+		update Employee set Gender = inserted.Gender
+		from inserted
+		join Employee
+		on Employee.Id = inserted.id
+	end
+
+	if(update(Name))
+	begin
+		update Employee set Name = inserted.Name
+		from inserted
+		join Employee
+		on Employee.Id = inserted.id
+	end
+end
+
+--uuendame andmeid, kasutada vEmployeeDetails
+--uuendada seal, kus Id on 1
+update Employee set Name = 'John123', Gender = 'Male', DepartmentId = 3
+where Id = 1
+
+select * from vEmployeeDetails
+
+--- delete trigger
+create view vEmployeeCount
+as
+select DepartmentId, DepartmentName, count(*) as TotalEmployees
+from Employee
+join Department
+on Employee.DepartmentId = Department.Id
+group by DepartmentName, DepartmentId
+
+select * from vEmployeeCount
+
+--vaja teha päring, kus on töötajaid 2tk või rohkem
+--kasutada vEmployeeCount
+select DepartmentName, TotalEmployees from vEmployeeCount
+where TotalEmployees >= 2
+
+---
+select DepartmentName, DepartmentId, count(*) as TotalEmployees
+into #TempEmployeeCount
+from Employee
+join Department
+on Employee.DepartmentId = Department.Id
+group by DepartmentName, DepartmentId
+
+select * from #TempEmployeeCount
+
+--läbi ajutise tabeli saab samu andmeid vaadata, kui seal on info olemas
+select DepartmentName, TotalEmployees from #TempEmployeeCount
+where TotalEmployees >= 2
+
+--tuleb teha trigger nimega trEmployeeDetails_InsteadOfDelete
+--ja kasutada vEmployeeDetails
+--triggeri tüüp on instead of delete
+create trigger trEmployeeDetails_InsteadOfDelete
+on vEmployeeDetails
+instead of delete
+as begin
+	delete Employee
+	from Employee
+	join deleted
+	on Employee.Id = deleted.Id
+end
+
+delete from vEmployeeDetails where Id = 7
+
+--- CTE e common table expression
+select * from Employee
+
+--CTE näide
+with EmployeeCount(DepartmentName, DepartmentId, TotalEmployees)
+as
+	(
+	select DepartmentName, DepartmentId, count(*) as TotalEmployees
+	from Employee
+	join Department
+	on Employee.DepartmentId = Department.Id
+	group by DepartmentName, DepartmentId
+	)
+select DepartmentName, TotalEmployees
+from EmployeeCount
+where TotalEmployees >= 2
+
+-- CTE-d võivad sarnaneda temp tabeliga
+-- sarnane päritud tabelile ja ei ole salvestatud objektina
+-- ning kestab päringu ulatuses
+
+--päritud tabel
+select DepartmentName, TotalEmployees
+from
+(
+	select DepartmentName, DepartmentId, count(*) as TotalEmployees
+	from Employee
+	join Department
+	on Employee.DepartmentId = Department.Id
+	group by DepartmentName, DepartmentId
+)
+as EmployeeCount
+where TotalEmployees >= 2
+
+--tehke päring, kus on kaks CTE päringut sees
+with EmployeeCountBy_Payroll_IT_Dept(DepartmentName, Total)
+as
+(
+	select DepartmentName, count(Employee.Id) as TotalEmployees
+	from Employee
+	join Department
+	on Employee.DepartmentId = Department.Id
+	where DepartmentName in ('Payroll', 'IT')
+	group by DepartmentName
+),
+EmployeeCountBy_HR_Admin_Dept(DepartmentName, Total)
+as
+(
+	select DepartmentName, count(Employee.Id) as TotalEmployees
+	from Employee
+	join Department
+	on Employee.DepartmentId = Department.Id
+	group by DepartmentName
+)
+--kui on kaks CTE-d, siis unioni abil ühendab päringu
+select * from EmployeeCountBy_Payroll_IT_Dept
+union
+select * from EmployeeCountBy_HR_Admin_Dept
+
+--teha CTE päring nimega EmployeeCount
+--järjestaks DepartmentName järgi ära
+with EmployeeCount(DepartmentId, TotalEmployees)
+as
+	(
+		select DepartmentId, count(*) as TotalEmployees
+		from Employee
+		group by DepartmentId
+	)
+--select 'Hello'
+--- peale CTE-d peab kohe tulema käsklus SELECT, INSERT, UPDATE või DELETE
+--- kui proovid midagi muud, siis tuleb veateade
+select DepartmentName
+from Department
+join Employee
+on Department.Id = Employee.DepartmentId
+order by DepartmentName
+
+---uuendamine CTE-s
+
+--lihtne CTE
+with Employees_Name_Gender
+as
+(
+	select Id, Name, Gender from Employee
+)
+select * from Employees_Name_Gender
+
+--kasutame JOIN-i CTE tegemiseks
+
+with EmployeesByDepartment
+as
+(
+	select Employee.Id, Employee.Name, Gender, DepartmentName
+	from Employee
+	join department
+	on Employee.DepartmentId = Department.Id
+)
+update EmployeesByDepartment set Gender = 'Male' where Id = 1
+
+-- kasutage eelmist CTE andmete muutmiseks,
+-- aga seekord muutke Id 1 töötaja Gender Female peale ja
+-- DepartmentName Payroll peale
+
+with EmployeesByDepartment
+as
+(
+	select Employee.Id, Employee.Name, Gender, DepartmentName
+	from Employee
+	join department
+	on Employee.DepartmentId = Department.Id
+)
+update EmployeesByDepartment set Gender = 'Female', DepartmentName = 'Payroll' where Id = 1
+--ei luba mitmes tabelis korraga andmeid muuta, kui tegemist on CTE-ga
+
+--- Kokkuvõtte CTE-st
+-- 1. Kui CTE baseerub ühel tabelil, siis uuendus töötab
+-- 2. Kui CTE baseerub mitmel tabelil, siis tuleb veateade
+-- 3. Kui CTE baseerub mitmel tabelil ja tahame muuta ainult ühte tabelit,
+-- siis uuendus saab tehtud
+
+-- korduv CTE
+--- CTE, mis iseendale viitab, kutsutakse korduvaks CTE-ks
+--- kui tahad andmeid näidata hierarhiliselt
+
+Create Table Employee
+(
+	EmployeeId int Primary Key,
+	Name nvarchar(20),
+	ManagerId int
+)
+
+Insert into Employee values(1, 'Tom', 2)
+Insert into Employee values(2, 'Josh', NULL)
+Insert into Employee values(3, 'Mike', 2)
+Insert into Employee values(4, 'John', 3)
+Insert into Employee values(5, 'Pam', 1)
+Insert into Employee values(6, 'Mary', 3)
+Insert into Employee values(7, 'James', 1)
+Insert into Employee values(8, 'Sam', 5)
+Insert into Employee values(9, 'Simon', 1)
+
+-- kasutame left joini, et näha kõiki töötajad ja nende juhte
+select Emp.Name as [Employee Name],
+ISNULL(Manager.Name, 'Super Boss') as [Manager Name]
+from dbo.Employee Emp
+left join Employee Manager
+on Emp.ManagerId = Manager.EmployeeId
+
+--peab samasuguse tulemuse saavutama, aga kasutate CTE-d
+
+with EmployeeByManager
+as
+(
+	select Emp.Name as [Employee Name],
+	Manager.Name as [Manager Name]
+	from dbo.Employee Emp
+	join Employee Manager
+	on Emp.ManagerId = Manager.EmployeeId
+	union all
+	select Emp.Name as [Employee Name],
+	'Super Boss' as [Manager Name]
+	from dbo.Employee Emp
+	where Emp.ManagerId is NULL
+)
+select * from EmployeeByManager
+
+--2. variant koos boss leveliga
+with EmployeeCTE(Id, Name, ManagerId, [Level])
+as
+(
+	select Employee.EmployeeId, Employee.Name, Employee.ManagerId, 1
+	from Employee
+	where ManagerId is null
+
+	union all
+
+	select Employee.EmployeeId, Employee.Name, Employee.ManagerId,
+	EmployeeCTE.[Level] + 1
+	from Employee
+	Join EmployeeCTE
+	on Employee.ManagerId = EmployeeCTE.Id
+)
+select EmpCTE.Name as [Employee Name],
+ISNULL(MgrCTE.Name, 'Super Boss') as [Manager Name],
+EmpCTE.Level as [Boss Level]
+from EmployeeCTE EmpCTE
+left join EmployeeCTE MgrCTE
+on EmpCTE.ManagerId = MgrCTE.Id
+
+--PIVOT
+--mis on PIVOT?
+--PIVOT on SQL-i operatsioon, mis võimaldab teisendada ridu veergudeks
+create table Sales
+(
+	SalesAgent nvarchar(20),
+	SalesCountry nvarchar(20),
+	SalesAmount Int
+)
+
+insert into Sales values('Tom', 'UK', 200)
+insert into Sales values('John', 'US', 180)
+insert into Sales values('John', 'UK', 260)
+insert into Sales values('David', 'India', 450)
+insert into Sales values('Tom', 'India', 350)
+insert into Sales values('David', 'US', 200)
+insert into Sales values('Tom', 'US', 130)
+insert into Sales values('John', 'India', 120)
+insert into Sales values('John', 'UK', 120)
+insert into Sales values('David', 'UK', 220)
+insert into Sales values('John', 'UK', 420)
+insert into Sales values('David', 'US', 320)
+insert into Sales values('Tom', 'US', 340)
+insert into Sales values('Tom', 'UK', 660)
+insert into Sales values('John', 'India', 430)
+insert into Sales values('David', 'India', 230)
+insert into Sales values('David', 'India', 280)
+insert into Sales values('Tom', 'UK', 480)
+insert into Sales values('John', 'UK', 360)
+insert into Sales values('David', 'UK', 140)
+
+select SalesCountry, SalesAgent, SUM(SalesAmount) as TotalSales
+from Sales
+Group by SalesCountry, SalesAgent
+Order by SalesCountry, SalesAgent
+
+-- kasuta pivotit, et saada sama teulmus nagu ülemises päringus
+select SalesAgent, India, US, UK
+from Sales
+pivot
+(
+	sum(SalesAmount)
+	for SalesCountry in ([UK], [India], [US])
+) As PivotTable
+--päring muudab unikaalsete veergude väärtust (India, US, UK) SalesCountry veerus
+-- omaette veergudeks koos veergude SalesAmount liitmisega
+
+create table SalesWithId
+(
+	Id int Primary Key,
+	SalesAgent nvarchar(20),
+	SalesCountry nvarchar(20),
+	SalesAmount int
+)
+
+insert into SalesWithId values(1,'Tom', 'UK', 200)
+insert into SalesWithId values(2, 'John', 'US', 180)
+insert into SalesWithId values(3, 'John', 'UK', 260)
+insert into SalesWithId values(4, 'David', 'India', 450)
+insert into SalesWithId values(5, 'Tom', 'India', 350)
+insert into SalesWithId values(6, 'David', 'US', 200)
+insert into SalesWithId values(7, 'Tom', 'US', 130)
+insert into SalesWithId values(8,'John', 'India', 120)
+insert into SalesWithId values(9, 'John', 'UK', 120)
+insert into SalesWithId values(10, 'David', 'UK', 220)
+insert into SalesWithId values(11, 'John', 'UK', 420)
+insert into SalesWithId values(12, 'David', 'US', 320)
+insert into SalesWithId values(13, 'Tom', 'US', 340)
+insert into SalesWithId values(14,'Tom', 'UK', 660)
+insert into SalesWithId values(15, 'John', 'India', 430)
+insert into SalesWithId values(16, 'David', 'India', 230)
+insert into SalesWithId values(17, 'David', 'India', 280)
+insert into SalesWithId values(18, 'Tom', 'UK', 480)
+insert into SalesWithId values(19, 'John', 'UK', 360)
+insert into SalesWithId values(20, 'David', 'UK', 140)
+
+--tehke uuesti pivot, aga kasutage SalesWithId tabelit
+
+select SalesAgent, India, US, UK
+from SalesWithId
+pivot
+(
+	sum(SalesAmount)
+	for SalesCountry in ([UK], [India], [US])
+) As PivotTable
+--põhjuseks on Id veeru olemasolu SalesWithId, mida võetakse arvesse
+--pööramise ja grupeerimise järgi
+
+select SalesAgent, India, US, UK
+from
+(
+	select SalesAgent, SalesCountry, SalesAmount from SalesWithId
+)
+as SourceTable
+pivot
+(
+	sum(SalesAmount)
+	for SalesCountry in ([UK], [India], [US])
+) As PivotTable
+
+--transactionid
+-- transaction jälgib järgmisi samme:
+-- 1. selle algus
+-- 2. käivitab DB kaske
+-- 3. kontrollib vigu. Kui on viga, siis taastab algse oleku
+
+create table MailingAddress
+(
+	Id int not null Primary key,
+	EmployeeNumber int,
+	HouseNumber nvarchar(10),
+	StreetAddress nvarchar(50),
+	City nvarchar(50),
+	PostalCoe nvarchar(20)
+)
+
+insert into MailingAddress values (1, 101, '#10', 'King Street', 'Londoon', 'CR27W')
+
+create table PhysicalAddress
+(
+	Id int not null Primary key,
+	EmployeeNumber int,
+	HouseNumber nvarchar(10),
+	StreetAddress nvarchar(50),
+	City nvarchar(50),
+	PostalCoe nvarchar(20)
+)
+
+insert into PhysicalAddress values (1, 101, '#10', 'King Street', 'Londoon', 'CR27W')
+
+create proc spUpdateAdress
+as begin
+	begin try
+		begin transaction
+			update MailingAddress set City = 'LONDON'
+			Where MailingAddress.Id = 1 and EmployeeNumber = 101
+
+			update PhysicalAddress set City = 'LONDON'
+			Where PhysicalAddress.Id = 1 and EmployeeNumber = 101
+		commit transaction
+	end try
+begin catch
+	rollback transaction
+end catch
+end
+
+--käivitame spUpdateAddress stored procedure-i
+spUpdateAdress
+
+Select * from MailingAddress
+Select * from PhysicalAddress
+
+-- kui teine uuendus ei lähe läbi, siis esimene ei lähe ka läbi
+-- kõik uuendused peabad läbi minema
+
+-- transaction ACID test
+-- edukas transaction peab läbima ACID testi:
+-- A - atomic ehk aatomlikus
+-- C - consistent ehk järjepidavus
+-- I - isolated ehk isoleeritud
+-- D - durable ehk vastupidav
+
+--- Atomic - kõik tehingud transactionis on kas edukaly täidetud või need
+-- lükatakse tagasi. Nt, mõlemad käsud peaksid alati õnnestuma. Andmebaas
+-- teeb sellisel juhul: võtab esimese update tagasi ja veeretab selle algasendisse
+-- ehk taastab algsed andmed
+
+--- Consistent - kõik transactionid puudutavad andmed jäetakse loogiliselt
+-- järjepidevasse olekusse. Nt, kui laos saadaal olevaid esemete hulka
+-- vähendatakse, siis tabelis peab olema vastav kanne. Inventuur ei saa
+-- lihtsalt kaduda
+
+--- Isolated - transaction peab andmeid mõjutama, sekkuma teistesse
+-- samaaegsetesse transactionitesse. See takistab andmete muutmist, mis
+-- põhinevad sidumata tabelitel. Nt, muudatused kirjas, mis hiljem tagasi
+-- muudetakse. Enamik DB-d kasutab tehnigute isoleerimise säilitamiseks
+-- lukustamist
+
+--- Durable - kui muudatus on tehtud, siis see on püsiv. Kui süsteemiviga või
+-- voolukatkesus ilmneb enne käskude komplekti valmimist, siis tühistatakse need
+-- käsud ja andmed taatakse algsesse olekusse. Taastamine toimub peale süsteemi
+-- taaskäivitamist
+
+--subqueries ehk alamkäsud
+-- alamkäsud on SQL-i käsud, mis on pesastatud teise SQL-i käsu sisse
+
+create table ProductSales
+(
+	id int Primary Key identity,
+	ProductId int foreign key references Product(Id),
+	UnitPrice int,
+	QuantitySold int
+)
+
+truncate table Product
