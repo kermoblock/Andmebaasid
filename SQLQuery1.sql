@@ -2388,3 +2388,113 @@ create table ProductSales
 )
 
 truncate table Product
+
+insert into productSales values(3, 450, 5)
+insert into productSales values(2, 250, 7)
+insert into productSales values(3, 450, 4)
+insert into productSales values(3, 450, 9)
+
+select * from ProductSales
+select * from Product
+
+--kirjutame päringu, mis annab infot müümata toodetest
+
+select Id, Name, Description
+from Product
+where Id not in (select ProductId from ProductSales)
+-- sulgude sees on subquery, mis tagastab kõik ProductId-d ProductSales tabelist
+
+--enamus juhtudel saab subquery-t asendada join-iga
+--teha päring joiniga
+select Product.Id, Name, Description
+from Product
+left join ProductSales
+on PRODUCT.Id = ProductSales.ProductId
+where PRODUCTSales.Id is null
+
+--teeme subquery, kus kasutatakse selecti
+select Name,
+(select SUM(QuantitySold) from ProductSales where ProductId = PRODUCT.Id) as
+[Total Quantity]
+from Product
+order by Name
+
+--sama tulemus, aga join-iga
+select Name, SUM(QuantitySold) as [Total Quantity]
+from ProductSales
+full join Product
+on PRODUCT.Id = ProductSales.ProductId
+group by Name
+
+--subqueryt saab subquery sisse panna
+--subquery on alati sulgudes ja neid nimetatakse sisemisteks päringuteks
+
+--rohkete andmetega testimise tabel
+
+truncate table Product
+truncate table ProductSales
+
+--sisestame näidisandmed Product tabelisse
+declare @Id int
+set @Id = 1
+while(@Id <= 3000000)
+begin
+	insert into Product
+	values('Product - ' + CAST(@Id as nvarchar(20)),
+	'Description for product ' + cast(@Id as nvarchar(20)))
+
+	print @Id
+	set @Id = @Id + 1
+end
+
+declare @RandomProductId int
+declare @RandomUnitPrice int
+declare @RandomQuantitySold int
+
+-- ProductId
+declare @LowerLimitForProductId int
+declare @UpperLimitForProductId int
+
+set @LowerLimitForProductId = 1
+set @UpperLimitForProductId = 100000
+
+--Unit Price
+declare @LowerLimitForUnitPrice int
+declare @UpperLimitForUnitPrice int
+
+set @LowerLimitForUnitPrice = 1
+set @UpperLimitForUnitPrice = 100
+
+-- Quantity Sold
+
+declare @LowerLimitForQuantitySold int
+declare @UpperLimitForQuantitySold int
+
+set @LowerLimitForQuantitySold = 1
+set @UpperLimitForQuantitySold = 10
+
+declare @Counter int
+set @Counter = 1
+
+while(@Counter <= 4500000)
+begin
+	set @RandomProductId =ROUND(((@UpperLimitForProductId -
+	@LowerLimitForProductId) * rand() + @LowerLimitForProductId), 0)
+
+	set @RandomUnitPrice =ROUND(((@UpperLimitForUnitPrice -
+	@LowerLimitForUnitPrice) * rand() + @LowerLimitForUnitPrice), 0)
+
+	set @RandomQuantitySold =ROUND(((@UpperLimitForQuantitySold -
+	@LowerLimitForQuantitySold) * rand() + @LowerLimitForQuantitySold), 0)
+
+	insert into ProductSales
+	values (@RandomProductId, @RandomUnitPrice, @RandomQuantitySold)
+
+	print @Counter
+	set @Counter = @Counter + 1
+end
+
+create table Product
+(
+	
+)
